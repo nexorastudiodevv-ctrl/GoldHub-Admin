@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+    <title>إدارة GoldHub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheخet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body { font-family: "Cairo", sans-serif; }
+      .field {
+        width: 100%;
+        border: 1px solid #1e293b;
+        border-radius: .75rem;
+        background: #0f172a;
+        padding: .65rem .85rem;
+        color: #f8fafc;
+        outline: none;
+      }
+      .field:focus { border-color: #06b6d4; }
+      .ql-toolbar.ql-snow, .ql-container.ql-snow { border-color: #1e293b; }
+      .ql-toolbar.ql-snow { border-radius: .75rem .75rem 0 0; background: #0f172a; }
+      .ql-container.ql-snow { border-radius: 0 0 .75rem .75rem; background: #0f172a; }
+      .ql-editor { min-height: 180px; color: #f8fafc; }
+    </style>
+  </head>
+  <body class="min-h-screen bg-slate-950 text-slate-100">
+    <main class="mx-auto max-w-5xl px-4 py-10">
+      <header class="mb-8">
+        <div>
+          <p class="text-sm font-bold text-cyan-400">GoldHub</p>
+          <h1 class="text-2xl font-extrabold">لوحة الإدارة</h1>
+        </div>
+      </header>
+
+      <section id="loginPanel" class="mx-auto max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6">
+        <h2 class="mb-2 text-xl font-bold">دخول المدير</h2>
+        <p class="mb-6 text-sm text-slate-400">سجّل الدخول بحساب الإدارة المعتمد.</p>
+        <form id="loginForm" class="space-y-4">
+          <label class="sr-only" for="loginEmail">البريد الإلكتروني</label>
+          <input id="loginEmail" class="field" type="email" autocomplete="username" placeholder="البريد الإلكتروني" required />
+          <label class="sr-only" for="loginPassword">كلمة المرور</label>
+          <input id="loginPassword" class="field" type="password" autocomplete="current-password" placeholder="كلمة المرور" required />
+          <div class="flex items-center justify-between gap-3 text-sm">
+            <label class="flex items-center gap-2 text-slate-400">
+              <input id="rememberMe" type="checkbox" class="accent-cyan-500" />
+              تذكرني على هذا الجهاز
+            </label>
+            <button id="forgotPassword" type="button" class="text-cyan-400 hover:underline">نسيت كلمة المرور؟</button>
+          </div>
+          <button id="loginButton" class="w-full rounded-xl bg-cyan-500 px-4 py-3 font-bold text-white hover:bg-cyan-600" type="submit">
+            تسجيل الدخول
+          </button>
+        </form>
+        <p id="loginMessage" class="mt-4 min-h-6 text-sm" role="status" aria-live="polite"></p>
+      </section>
+
+      <section id="dashboard" class="hidden space-y-8">
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-4">
+          <p id="signedInAs" class="text-sm text-slate-300"></p>
+          <button id="logoutButton" class="rounded-lg border border-red-500/30 px-4 py-2 text-sm text-red-300 hover:bg-red-500/10">
+            تسجيل الخروج
+          </button>
+        </div>
+
+        <section class="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <h2 class="mb-2 text-xl font-bold">تحديث بيانات السوق</h2>
+          <p class="mb-5 text-sm text-slate-400">التغييرات تُحفظ في Firebase Realtime Database وتظهر على الموقع.</p>
+          <form id="pricesForm">
+            <div id="priceFields" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+            <button id="savePrices" class="mt-6 w-full rounded-xl bg-cyan-500 px-4 py-3 font-bold text-white hover:bg-cyan-600" type="submit">
+              حفظ الأسعار على Firebase
+            </button>
+          </form>
+          <button id="resetPrices" class="mt-3 w-full rounded-xl border border-red-500/30 px-4 py-3 font-bold text-red-300 hover:bg-red-500/10">
+            حذف الأسعار اليدوية والعودة للتحديث التلقائي
+          </button>
+          <p id="pricesMessage" class="mt-4 min-h-6 text-sm" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+          <h2 class="mb-2 text-xl font-bold">إدارة المقالات</h2>
+          <form id="articleForm" class="mt-5 space-y-4">
+            <label class="sr-only" for="articleTitle">عنوان المقال</label>
+            <input id="articleTitle" class="field" maxlength="180" placeholder="عنوان المقال" required />
+            <label class="sr-only" for="articleImage">رابط صورة المقال</label>
+            <input id="articleImage" class="field" type="url" placeholder="رابط صورة المقال (اختياري)" />
+            <div id="editor"></div>
+            <div class="rounded-xl border border-slate-800 bg-slate-950 p-4">
+              <h3 class="mb-3 font-bold text-cyan-300">معاينة المقال</h3>
+              <article id="articlePreview" class="overflow-hidden rounded-lg border border-slate-800">
+                <img id="previewImage" class="hidden max-h-64 w-full object-cover" alt="" />
+                <div class="p-4">
+                  <h4 id="previewTitle" class="font-bold"></h4>
+                  <p id="previewText" class="mt-2 whitespace-pre-line text-sm text-slate-400"></p>
+                </div>
+              </article>
+            </div>
+            <div class="flex flex-wrap gap-3">
+              <button id="saveArticle" class="flex-1 rounded-xl bg-amber-500 px-4 py-3 font-bold text-slate-950 hover:bg-amber-400" type="submit">نشر المقال</button>
+              <button id="cancelArticleEdit" class="hidden rounded-xl bg-slate-700 px-4 py-3 font-bold hover:bg-slate-600" type="button">إلغاء التعديل</button>
+            </div>
+          </form>
+          <p id="articleMessage" class="mt-4 min-h-6 text-sm" role="status" aria-live="polite"></p>
+          <div class="mt-8 border-t border-slate-800 pt-5">
+            <label class="sr-only" for="articleSearch">بحث في المقالات</label>
+            <input id="articleSearch" class="field mb-4" type="search" placeholder="بحث في المقالات..." />
+            <div id="articlesList" class="space-y-3" aria-live="polite"></div>
+          </div>
+        </section>
+      </section>
+    </main>
+    <script type="module" src="./admin.js"></script>
+  </body>
+</html>
