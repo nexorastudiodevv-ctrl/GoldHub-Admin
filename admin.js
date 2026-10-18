@@ -220,6 +220,45 @@ function updateArticlePreview() {
     }
 }
 
+function togglePromotionFields() {
+    const enabled = byId("promotionEnabled").checked;
+    byId("promotionFields").classList.toggle("hidden", !enabled);
+    byId("promotionName").required = enabled;
+    byId("promotionUrl").required = enabled;
+}
+
+function readPromotion() {
+    if (!byId("promotionEnabled").checked) return null;
+
+    const url = byId("promotionUrl").value.trim();
+    try {
+        const parsedUrl = new URL(url);
+        if (!["https:", "http:"].includes(parsedUrl.protocol)) throw new Error();
+    } catch {
+        throw new Error("أدخل رابطاً صحيحاً يبدأ بـ https:// أو http://.");
+    }
+
+    const image = byId("promotionImage").value.trim();
+    if (image) {
+        try {
+            const parsedImage = new URL(image);
+            if (!["https:", "http:"].includes(parsedImage.protocol)) throw new Error();
+        } catch {
+            throw new Error("أدخل رابط صورة صحيحاً يبدأ بـ https:// أو http://.");
+        }
+    }
+
+    return {
+        businessType: byId("promotionType").value,
+        business: byId("promotionName").value.trim(),
+        description: byId("promotionDescription").value.trim(),
+        image,
+        url,
+        buttonText: byId("promotionButton").value.trim() || "زيارة المتجر",
+        disclosure: byId("promotionDisclosure").checked
+    };
+}
+
 function renderArticles(filter = "") {
     const container = byId("articlesList");
     const normalizedFilter = filter.trim().toLocaleLowerCase();
@@ -242,6 +281,12 @@ function renderArticles(filter = "") {
         const title = document.createElement("span");
         title.className = "min-w-0 flex-1 truncate text-sm";
         title.textContent = article.title || "مقال بلا عنوان";
+        let promotionLabel = null;
+        if (article.promotion?.business) {
+            promotionLabel = document.createElement("span");
+            promotionLabel.className = "rounded-full bg-amber-500/10 px-2 py-1 text-xs text-amber-300";
+            promotionLabel.textContent = `ترويج: ${article.promotion.business}`;
+        }
         const actions = document.createElement("div");
         actions.className = "flex gap-2";
         const editButton = document.createElement("button");
@@ -253,7 +298,9 @@ function renderArticles(filter = "") {
         deleteButton.textContent = "حذف";
         deleteButton.addEventListener("click", () => deleteArticle(id));
         actions.append(editButton, deleteButton);
-        row.append(title, actions);
+        row.append(title);
+        if (promotionLabel) row.append(promotionLabel);
+        row.append(actions);
         container.appendChild(row);
     }
 }
@@ -300,6 +347,7 @@ function clearArticleForm() {
     quill.setContents([]);
     byId("saveArticle").textContent = "نشر المقال";
     byId("cancelArticleEdit").classList.add("hidden");
+    togglePromotionFields();
     updateArticlePreview();
 }
 
@@ -310,6 +358,16 @@ function editArticle(id) {
     byId("articleTitle").value = article.title || "";
     byId("articleImage").value = article.image || "";
     quill.root.innerHTML = article.content || "";
+    const promotion = article.promotion || {};
+    byId("promotionEnabled").checked = Boolean(promotion.business || promotion.url);
+    byId("promotionType").value = promotion.businessType || "company";
+    byId("promotionName").value = promotion.business || "";
+    byId("promotionDescription").value = promotion.description || "";
+    byId("promotionImage").value = promotion.image || "";
+    byId("promotionUrl").value = promotion.url || "";
+    byId("promotionButton").value = promotion.buttonText || "";
+    byId("promotionDisclosure").checked = promotion.disclosure === true;
+    togglePromotionFields();
     byId("saveArticle").textContent = "حفظ التعديل";
     byId("cancelArticleEdit").classList.remove("hidden");
     updateArticlePreview();
@@ -438,6 +496,7 @@ byId("articleSearch").addEventListener("input", (event) => renderArticles(event.
 byId("cancelArticleEdit").addEventListener("click", clearArticleForm);
 byId("articleTitle").addEventListener("input", updateArticlePreview);
 byId("articleImage").addEventListener("input", updateArticlePreview);
+byId("promotionEnabled").addEventListener("change", togglePromotionFields);
 
 byId("pricesForm").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -526,6 +585,14 @@ byId("articleForm").addEventListener("submit", async (event) => {
         return;
     }
 
+    let promotion;
+    try {
+        promotion = readPromotion();
+    } catch (error) {
+        setMessage("articleMessage", error.message, true);
+        return;
+    }
+
     const id = editingArticleId || Date.now().toString();
     const article = {
         title,
@@ -535,6 +602,7 @@ byId("articleForm").addEventListener("submit", async (event) => {
         date: new Date().toLocaleDateString("ar-EG"),
         timestamp: Date.now()
     };
+    if (promotion) article.promotion = promotion;
 
     try {
         await set(ref(db, `articles/${id}`), article);

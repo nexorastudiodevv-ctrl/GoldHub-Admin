@@ -96,6 +96,45 @@
             <label class="sr-only" for="articleImage">رابط صورة المقال</label>
             <input id="articleImage" class="field" type="url" placeholder="رابط صورة المقال (اختياري)" />
             <div id="editor"></div>
+            <label class="flex items-center gap-2 text-sm text-slate-300">
+              <input id="promotionEnabled" type="checkbox" class="accent-amber-500" />
+              إضافة ترويج لشركة أو مصنع أو محل
+            </label>
+            <fieldset id="promotionFields" class="hidden space-y-4 rounded-xl border border-amber-500/30 bg-slate-950 p-4">
+              <legend class="px-2 font-bold text-amber-300">بيانات الترويج</legend>
+              <label class="block space-y-2 text-sm text-slate-300" for="promotionType">
+                نوع الجهة
+                <select id="promotionType" class="field">
+                  <option value="company">شركة</option>
+                  <option value="factory">مصنع</option>
+                  <option value="shop">محل</option>
+                </select>
+              </label>
+              <label class="block space-y-2 text-sm text-slate-300" for="promotionName">
+                اسم الشركة أو المصنع أو المحل
+                <input id="promotionName" class="field" maxlength="120" placeholder="اسم الجهة" />
+              </label>
+              <label class="block space-y-2 text-sm text-slate-300" for="promotionDescription">
+                وصف العرض أو المنتج
+                <textarea id="promotionDescription" class="field" maxlength="500" rows="3" placeholder="اكتب وصفاً مختصراً"></textarea>
+              </label>
+              <label class="block space-y-2 text-sm text-slate-300" for="promotionImage">
+                رابط الصورة أو الشعار (اختياري)
+                <input id="promotionImage" class="field" type="url" placeholder="https://example.com/image.jpg" />
+              </label>
+              <label class="block space-y-2 text-sm text-slate-300" for="promotionUrl">
+                رابط المتجر أو الإحالة
+                <input id="promotionUrl" class="field" type="url" placeholder="https://example.com" />
+              </label>
+              <label class="block space-y-2 text-sm text-slate-300" for="promotionButton">
+                نص زر الإجراء (اختياري)
+                <input id="promotionButton" class="field" maxlength="40" placeholder="زيارة المتجر" />
+              </label>
+              <label class="flex items-center gap-2 text-sm text-slate-300">
+                <input id="promotionDisclosure" type="checkbox" class="accent-amber-500" />
+                إظهار تنويه «إعلان / رابط تسويق بالعمولة»
+              </label>
+            </fieldset>
             <div class="rounded-xl border border-slate-800 bg-slate-950 p-4">
               <h3 class="mb-3 font-bold text-cyan-300">معاينة المقال</h3>
               <article id="articlePreview" class="overflow-hidden rounded-lg border border-slate-800">
