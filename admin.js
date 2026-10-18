@@ -230,6 +230,12 @@ function togglePromotionFields() {
 function readPromotion() {
     if (!byId("promotionEnabled").checked) return null;
 
+    const startDate = byId("promotionStartDate").value;
+    const endDate = byId("promotionEndDate").value;
+    if (startDate && endDate && startDate > endDate) {
+        throw new Error("تاريخ نهاية العرض يجب أن يكون بعد تاريخ البداية أو مطابقاً له.");
+    }
+
     const url = byId("promotionUrl").value.trim();
     try {
         const parsedUrl = new URL(url);
@@ -248,7 +254,7 @@ function readPromotion() {
         }
     }
 
-    return {
+    const promotion = {
         businessType: byId("promotionType").value,
         business: byId("promotionName").value.trim(),
         description: byId("promotionDescription").value.trim(),
@@ -257,6 +263,9 @@ function readPromotion() {
         buttonText: byId("promotionButton").value.trim() || "زيارة المتجر",
         disclosure: byId("promotionDisclosure").checked
     };
+    if (startDate) promotion.startDate = startDate;
+    if (endDate) promotion.endDate = endDate;
+    return promotion;
 }
 
 function renderArticles(filter = "") {
@@ -366,6 +375,8 @@ function editArticle(id) {
     byId("promotionImage").value = promotion.image || "";
     byId("promotionUrl").value = promotion.url || "";
     byId("promotionButton").value = promotion.buttonText || "";
+    byId("promotionStartDate").value = promotion.startDate || "";
+    byId("promotionEndDate").value = promotion.endDate || "";
     byId("promotionDisclosure").checked = promotion.disclosure === true;
     togglePromotionFields();
     byId("saveArticle").textContent = "حفظ التعديل";
