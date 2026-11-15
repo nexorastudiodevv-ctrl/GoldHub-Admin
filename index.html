@@ -76,6 +76,12 @@
         <section class="rounded-2xl border border-slate-800 bg-slate-900 p-5">
           <h2 class="mb-2 text-xl font-bold">تحديث بيانات السوق</h2>
           <p class="mb-5 text-sm text-slate-400">التغييرات تُحفظ في Firebase Realtime Database وتظهر على الموقع.</p>
+          <div class="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950 p-4">
+            <p id="exchangeRatesStatus" class="text-sm text-slate-400" role="status" aria-live="polite">يتم تحميل أسعار العملات مباشرة من الدولار الأمريكي.</p>
+            <button id="refreshExchangeRates" class="rounded-lg border border-cyan-500/30 px-4 py-2 text-sm font-bold text-cyan-300 hover:bg-cyan-500/10" type="button">
+              تحديث العملات الآن
+            </button>
+          </div>
           <form id="pricesForm">
             <div id="priceFields">
               <div id="priceTabs" class="flex gap-2 overflow-x-auto pb-2" role="tablist" aria-label="فئات بيانات السوق"></div>

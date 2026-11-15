@@ -14,6 +14,8 @@ The login accepts the administrator account configured in `admin.js`. Firebase A
 
 The dashboard writes market prices to `market_prices` and manages articles under `articles`; the public سهم الذهب site reads those same database paths.
 
+Currency rates use USD as the base and are refreshed from the exchange-rate API when the dashboard opens, every 30 minutes, or with **تحديث العملات الآن**. The dashboard shows editable fields for EUR, GBP, JPY, CHF, CAD, AUD, CNY, SAR, AED, EGP, KWD, QAR, BHD, OMR, JOD, TRY, INR, RUB, and NZD, plus the existing AFN and ALL fields. USD remains fixed at 1 as the base currency. Currency-only edits can be saved without entering gold or metal prices; they are preserved as manual rates until **تحديث العملات الآن** is used to resume live rates. Rates are written to `market_prices/rates`; the update timestamp is stored as `market_prices/ratesLastUpdated`.
+
 ## Affiliate promotions in articles
 
 When publishing or editing an article, enable **إضافة ترويج لشركة أو مصنع أو محل** to add an optional promotional card. Enter the business name and an HTTP(S) store/referral URL; description, image, and button text are optional. The card is shown at the end of the article on the public site and on its generated SEO page. The affiliate disclosure can be enabled for each promotion.

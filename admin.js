@@ -15,11 +15,38 @@ import {
     onValue,
     ref,
     remove,
-    set
+    set,
+    update
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 const ADMIN_EMAIL = "alfaydahmd02@gmail.com";
 const OUNCE_TO_GRAM = 31.1034768;
+const EXCHANGE_RATE_API = "https://open.er-api.com/v6/latest/USD";
+const LIVE_RATE_CURRENCIES = [
+    { code: "USD", name: "الدولار الأمريكي" },
+    { code: "EUR", name: "اليورو" },
+    { code: "GBP", name: "الجنيه الإسترليني" },
+    { code: "JPY", name: "الين الياباني" },
+    { code: "CHF", name: "الفرنك السويسري" },
+    { code: "CAD", name: "الدولار الكندي" },
+    { code: "AUD", name: "الدولار الأسترالي" },
+    { code: "CNY", name: "اليوان الصيني" },
+    { code: "SAR", name: "الريال السعودي" },
+    { code: "AED", name: "الدرهم الإماراتي" },
+    { code: "EGP", name: "الجنيه المصري" },
+    { code: "KWD", name: "الدينار الكويتي" },
+    { code: "QAR", name: "الريال القطري" },
+    { code: "BHD", name: "الدينار البحريني" },
+    { code: "OMR", name: "الريال العُماني" },
+    { code: "JOD", name: "الدينار الأردني" },
+    { code: "TRY", name: "الليرة التركية" },
+    { code: "INR", name: "الروبية الهندية" },
+    { code: "RUB", name: "الروبل الروسي" },
+    { code: "NZD", name: "الدولار النيوزيلندي" },
+    { code: "AFN", name: "الأفغاني" },
+    { code: "ALL", name: "الليك الألباني" }
+];
+const EXCHANGE_RATE_REFRESH_INTERVAL = 30 * 60 * 1000;
 const firebaseConfig = {
     apiKey: "AIzaSyBLHuPTH3RhwDTdxTDcgFRYPfvXZM3gco8",
     authDomain: "goldhub-1fdb1.firebaseapp.com",
@@ -35,6 +62,9 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 const pricesRef = ref(db, "market_prices");
+const exchangeRatesRef = ref(db, "market_prices/rates");
+const ratesModeRef = ref(db, "market_prices/ratesMode");
+const ratesLastUpdatedRef = ref(db, "market_prices/ratesLastUpdated");
 const articlesRef = ref(db, "articles");
 const priceFields = [
     { id: "manualGoldPrice", label: "سعر أوقية الذهب (USD)", group: "أسعار الذهب" },
@@ -44,9 +74,12 @@ const priceFields = [
     { id: "manualIronEzzPrice", label: "حديد عز (EGP/Ton)", group: "المعادن" },
     { id: "manualIronEgyptiansPrice", label: "حديد المصريين (EGP/Ton)", group: "المعادن" },
     { id: "manualIronGarhyPrice", label: "حديد الجارحي (EGP/Ton)", group: "المعادن" },
-    { id: "manualEGP", label: "USD / EGP", group: "العملات" },
-    { id: "manualSAR", label: "USD / SAR", group: "العملات" },
-    { id: "manualEUR", label: "USD / EUR", group: "العملات" },
+    ...LIVE_RATE_CURRENCIES.map(({ code, name }) => ({
+        id: `manual${code}`,
+        label: code === "USD" ? `${code} (${name} - العملة الأساسية)` : `USD / ${code} (${name})`,
+        group: "العملات",
+        live: true
+    })),
     { id: "manual24k", label: "ذهب عيار 24 (USD/gram)", group: "أسعار الذهب" },
     { id: "manual21k", label: "ذهب عيار 21 (USD/gram)", group: "أسعار الذهب" },
     { id: "manual18k", label: "ذهب عيار 18 (USD/gram)", group: "أسعار الذهب" },
@@ -69,6 +102,10 @@ let articles = {};
 let editingArticleId = null;
 let quill;
 let stopArticlesListener;
+let exchangeRateTimer;
+let isRefreshingExchangeRates = false;
+let hasManualRateChanges = false;
+let hasOtherPriceChanges = false;
 
 const byId = (id) => document.getElementById(id);
 
@@ -139,6 +176,14 @@ function renderPriceFields() {
             input.min = "0";
             input.inputMode = "decimal";
             input.placeholder = "اتركه فارغاً للإبقاء على القيمة الحالية";
+            if (field.live) {
+                if (field.id === "manualUSD") {
+                    input.readOnly = true;
+                    input.title = "الدولار هو العملة الأساسية وتبقى قيمته 1.";
+                } else {
+                    input.title = "يمكنك تعديل السعر يدوياً ثم حفظ الأسعار على Firebase.";
+                }
+            }
             wrapper.appendChild(input);
             panel.appendChild(wrapper);
         }
@@ -195,6 +240,19 @@ function readNumber(id, fallback) {
     return value;
 }
 
+function readExchangeRates(existingRates = currentPrices.rates || {}) {
+    return {
+        ...existingRates,
+        ...Object.fromEntries(LIVE_RATE_CURRENCIES.map(({ code }) => {
+            const input = byId(`manual${code}`).value.trim();
+            const rate = input
+                ? readNumber(`manual${code}`, Number(existingRates[code]))
+                : existingRates[code];
+            return [code, rate];
+        }).filter(([, rate]) => rate != null))
+    };
+}
+
 function fillPriceFields(prices) {
     const rate = Number(prices.rates?.EGP) || 48.5;
     const ounceGold = Number(prices.gold) || 2350.75;
@@ -214,9 +272,10 @@ function fillPriceFields(prices) {
         manualIronEzzPrice: prices.ironEzz,
         manualIronEgyptiansPrice: prices.ironEgyptians,
         manualIronGarhyPrice: prices.ironGarhy,
-        manualEGP: prices.rates?.EGP,
-        manualSAR: prices.rates?.SAR,
-        manualEUR: prices.rates?.EUR,
+        ...Object.fromEntries(LIVE_RATE_CURRENCIES.map(({ code }) => [
+            `manual${code}`,
+            prices.rates?.[code] ?? (code === "USD" ? 1 : undefined)
+        ])),
         manual24k: prices.carats?.k24 ?? defaultCarats.k24,
         manual21k: prices.carats?.k21 ?? defaultCarats.k21,
         manual18k: prices.carats?.k18 ?? defaultCarats.k18,
@@ -236,6 +295,86 @@ function fillPriceFields(prices) {
 
     for (const [id, value] of Object.entries(values)) {
         byId(id).value = value == null ? "" : String(value);
+    }
+}
+
+function setExchangeRatesStatus(message, isError = false) {
+    const status = byId("exchangeRatesStatus");
+    status.textContent = message;
+    status.className = `text-sm ${isError ? "text-red-400" : "text-slate-400"}`;
+}
+
+async function refreshExchangeRates(force = false) {
+    if (isRefreshingExchangeRates) return;
+    if (!force && currentPrices.ratesMode === "manual") {
+        setExchangeRatesStatus("أسعار العملات محفوظة يدوياً؛ اضغط «تحديث العملات الآن» لاستعادة الأسعار المباشرة.");
+        return;
+    }
+    if (!force && hasManualRateChanges) {
+        setExchangeRatesStatus("لديك تعديلات عملات غير محفوظة؛ احفظها قبل التحديث التلقائي.");
+        return;
+    }
+
+    isRefreshingExchangeRates = true;
+    const button = byId("refreshExchangeRates");
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 15000);
+    button.disabled = true;
+    setExchangeRatesStatus("جارٍ جلب أسعار العملات مقابل الدولار...");
+
+    try {
+        const response = await fetch(EXCHANGE_RATE_API, { cache: "no-store", signal: controller.signal });
+        if (!response.ok) throw new Error(`تعذّر جلب أسعار العملات (HTTP ${response.status}).`);
+        const data = await response.json();
+        if (data.result !== "success" || !data.rates) {
+            throw new Error(data["error-type"] || "مصدر أسعار العملات لم يُرجع بيانات صالحة.");
+        }
+
+        const rates = { USD: 1 };
+        for (const { code } of LIVE_RATE_CURRENCIES.filter((currency) => currency.code !== "USD")) {
+            const rate = Number(data.rates[code]);
+            if (!Number.isFinite(rate) || rate <= 0) {
+                throw new Error(`لم يُرجع مصدر الأسعار قيمة صحيحة للعملة ${code}.`);
+            }
+            rates[code] = rate;
+        }
+
+        if (!force && hasManualRateChanges) {
+            setExchangeRatesStatus("لديك تعديلات عملات غير محفوظة؛ احفظها قبل التحديث التلقائي.");
+            return;
+        }
+
+        const ratesLastUpdated = Date.now();
+        await update(exchangeRatesRef, rates);
+        await set(ratesModeRef, "live");
+        await set(ratesLastUpdatedRef, ratesLastUpdated);
+        currentPrices = {
+            ...currentPrices,
+            rates: { ...currentPrices.rates, ...rates },
+            ratesLastUpdated,
+            ratesMode: "live"
+        };
+        hasManualRateChanges = false;
+        for (const [currency, rate] of Object.entries(rates)) {
+            byId(`manual${currency}`).value = String(rate);
+        }
+
+        const updatedAt = data.time_last_update_utc
+            ? new Date(data.time_last_update_utc)
+            : new Date();
+        const formattedTime = Number.isNaN(updatedAt.getTime())
+            ? new Date().toLocaleString("ar")
+            : updatedAt.toLocaleString("ar");
+        setExchangeRatesStatus(`تم تحديث العملات مقابل USD في ${formattedTime}.`);
+    } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+            throw new Error("انتهت مهلة الاتصال بمصدر أسعار العملات.");
+        }
+        throw error;
+    } finally {
+        window.clearTimeout(timeoutId);
+        isRefreshingExchangeRates = false;
+        button.disabled = false;
     }
 }
 
@@ -468,6 +607,18 @@ async function loadDashboard() {
     }
 
     try {
+        await refreshExchangeRates();
+    } catch (error) {
+        setExchangeRatesStatus(error instanceof Error ? error.message : String(error), true);
+    }
+    window.clearInterval(exchangeRateTimer);
+    exchangeRateTimer = window.setInterval(() => {
+        refreshExchangeRates().catch((error) => {
+            setExchangeRatesStatus(error instanceof Error ? error.message : String(error), true);
+        });
+    }, EXCHANGE_RATE_REFRESH_INTERVAL);
+
+    try {
         stopArticlesListener?.();
         await initializeEditor();
         stopArticlesListener = onValue(articlesRef, (articleSnapshot) => {
@@ -537,6 +688,8 @@ onAuthStateChanged(auth, async (user) => {
     }
 
     if (!user) {
+        window.clearInterval(exchangeRateTimer);
+        exchangeRateTimer = undefined;
         stopArticlesListener?.();
         stopArticlesListener = undefined;
         byId("dashboard").classList.add("hidden");
@@ -555,12 +708,25 @@ byId("logoutButton").addEventListener("click", async () => {
     }
 });
 
+byId("refreshExchangeRates").addEventListener("click", () => {
+    refreshExchangeRates(true).catch((error) => {
+        setExchangeRatesStatus(error instanceof Error ? error.message : String(error), true);
+    });
+});
+
 byId("priceFields").addEventListener("input", (event) => {
-    if (event.target.id === "manualGoldPrice") {
+    const isExchangeRate = LIVE_RATE_CURRENCIES.some(({ code }) => event.target.id === `manual${code}`);
+    if (isExchangeRate) {
+        hasManualRateChanges = true;
+        setExchangeRatesStatus("عدّلت أسعار العملات؛ احفظ الأسعار على Firebase لتثبيتها.");
+        if (event.target.id === "manualEGP") {
+            for (const karat of [24, 21, 18, 14, 12]) syncCaratEgp(karat);
+        }
+    } else if (event.target.id === "manualGoldPrice") {
+        hasOtherPriceChanges = true;
         updateCaratsFromOunce();
-    } else if (event.target.id === "manualEGP") {
-        for (const karat of [24, 21, 18, 14, 12]) syncCaratEgp(karat);
     } else {
+        if (priceFields.some((field) => field.id === event.target.id)) hasOtherPriceChanges = true;
         const match = event.target.id.match(/^manual(24|21|18|14|12)k(EGP)?$/);
         if (match) syncCaratEgp(match[1], event.target.id);
     }
@@ -579,6 +745,25 @@ byId("pricesForm").addEventListener("submit", async (event) => {
     setMessage("pricesMessage", "");
 
     try {
+        if (hasManualRateChanges && !hasOtherPriceChanges) {
+            const rates = readExchangeRates();
+            const ratesLastUpdated = Date.now();
+            await set(ratesModeRef, "manual");
+            await update(exchangeRatesRef, rates);
+            await set(ratesLastUpdatedRef, ratesLastUpdated);
+            currentPrices = {
+                ...currentPrices,
+                rates,
+                ratesMode: "manual",
+                ratesLastUpdated
+            };
+            hasManualRateChanges = false;
+            fillPriceFields(currentPrices);
+            setMessage("pricesMessage", "تم حفظ أسعار العملات يدوياً في Firebase.");
+            setExchangeRatesStatus("تم حفظ أسعار العملات يدوياً ولن تُستبدل تلقائياً. اضغط «تحديث العملات الآن» للرجوع للأسعار المباشرة.");
+            return;
+        }
+
         const exchangeRates = currentPrices.rates || {};
         const gold = readNumber("manualGoldPrice", Number(currentPrices.gold));
         const egpRate = readNumber("manualEGP", Number(exchangeRates.EGP));
@@ -613,11 +798,10 @@ byId("pricesForm").addEventListener("submit", async (event) => {
                 k12: getCarat(12)
             },
             rates: {
-                ...exchangeRates,
-                EGP: egpRate,
-                SAR: readNumber("manualSAR", Number(exchangeRates.SAR) || 3.75),
-                EUR: readNumber("manualEUR", Number(exchangeRates.EUR) || 0.92)
+                ...readExchangeRates(exchangeRates),
+                EGP: egpRate
             },
+            ratesMode: hasManualRateChanges ? "manual" : (currentPrices.ratesMode || "live"),
             makingCharges: {
                 k24: readNumber("making24k", Number(currentPrices.makingCharges?.k24) || 0),
                 k21: readNumber("making21k", Number(currentPrices.makingCharges?.k21) || 0),
@@ -629,8 +813,13 @@ byId("pricesForm").addEventListener("submit", async (event) => {
         };
         await set(pricesRef, newPrices);
         currentPrices = newPrices;
+        hasManualRateChanges = false;
+        hasOtherPriceChanges = false;
         fillPriceFields(currentPrices);
         setMessage("pricesMessage", "تم حفظ الأسعار في Firebase بنجاح.");
+        if (currentPrices.ratesMode === "manual") {
+            setExchangeRatesStatus("تم حفظ أسعار العملات يدوياً ولن تُستبدل تلقائياً. اضغط «تحديث العملات الآن» للرجوع للأسعار المباشرة.");
+        }
     } catch (error) {
         setMessage("pricesMessage", error instanceof Error ? error.message : firebaseErrorMessage(error), true);
     } finally {
@@ -643,8 +832,13 @@ byId("resetPrices").addEventListener("click", async () => {
     try {
         await remove(pricesRef);
         currentPrices = {};
+        hasManualRateChanges = false;
+        hasOtherPriceChanges = false;
         fillPriceFields(currentPrices);
         setMessage("pricesMessage", "تم حذف الأسعار اليدوية. عاد الموقع إلى التحديث التلقائي.");
+        refreshExchangeRates().catch((error) => {
+            setExchangeRatesStatus(error instanceof Error ? error.message : String(error), true);
+        });
     } catch (error) {
         setMessage("pricesMessage", firebaseErrorMessage(error), true);
     }
