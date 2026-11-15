@@ -37,26 +37,26 @@ const db = getDatabase(app);
 const pricesRef = ref(db, "market_prices");
 const articlesRef = ref(db, "articles");
 const priceFields = [
-    { id: "manualGoldPrice", label: "سعر أوقية الذهب (USD)", group: "المعادن" },
+    { id: "manualGoldPrice", label: "سعر أوقية الذهب (USD)", group: "أسعار الذهب" },
     { id: "manualSilverPrice", label: "سعر أوقية الفضة (USD)", group: "المعادن" },
     { id: "manualCopperPrice", label: "سعر أوقية النحاس (USD)", group: "المعادن" },
     { id: "manualPlatinumPrice", label: "سعر أوقية البلاتين (USD)", group: "المعادن" },
     { id: "manualIronEzzPrice", label: "حديد عز (EGP/Ton)", group: "المعادن" },
     { id: "manualIronEgyptiansPrice", label: "حديد المصريين (EGP/Ton)", group: "المعادن" },
     { id: "manualIronGarhyPrice", label: "حديد الجارحي (EGP/Ton)", group: "المعادن" },
-    { id: "manualEGP", label: "USD / EGP", group: "أسعار الصرف" },
-    { id: "manualSAR", label: "USD / SAR", group: "أسعار الصرف" },
-    { id: "manualEUR", label: "USD / EUR", group: "أسعار الصرف" },
-    { id: "manual24k", label: "ذهب عيار 24 (USD/gram)", group: "أسعار العيارات بالدولار" },
-    { id: "manual21k", label: "ذهب عيار 21 (USD/gram)", group: "أسعار العيارات بالدولار" },
-    { id: "manual18k", label: "ذهب عيار 18 (USD/gram)", group: "أسعار العيارات بالدولار" },
-    { id: "manual14k", label: "ذهب عيار 14 (USD/gram)", group: "أسعار العيارات بالدولار" },
-    { id: "manual12k", label: "ذهب عيار 12 (USD/gram)", group: "أسعار العيارات بالدولار" },
-    { id: "manual24kEGP", label: "ذهب عيار 24 (EGP/gram)", group: "أسعار العيارات بالجنيه" },
-    { id: "manual21kEGP", label: "ذهب عيار 21 (EGP/gram)", group: "أسعار العيارات بالجنيه" },
-    { id: "manual18kEGP", label: "ذهب عيار 18 (EGP/gram)", group: "أسعار العيارات بالجنيه" },
-    { id: "manual14kEGP", label: "ذهب عيار 14 (EGP/gram)", group: "أسعار العيارات بالجنيه" },
-    { id: "manual12kEGP", label: "ذهب عيار 12 (EGP/gram)", group: "أسعار العيارات بالجنيه" },
+    { id: "manualEGP", label: "USD / EGP", group: "العملات" },
+    { id: "manualSAR", label: "USD / SAR", group: "العملات" },
+    { id: "manualEUR", label: "USD / EUR", group: "العملات" },
+    { id: "manual24k", label: "ذهب عيار 24 (USD/gram)", group: "أسعار الذهب" },
+    { id: "manual21k", label: "ذهب عيار 21 (USD/gram)", group: "أسعار الذهب" },
+    { id: "manual18k", label: "ذهب عيار 18 (USD/gram)", group: "أسعار الذهب" },
+    { id: "manual14k", label: "ذهب عيار 14 (USD/gram)", group: "أسعار الذهب" },
+    { id: "manual12k", label: "ذهب عيار 12 (USD/gram)", group: "أسعار الذهب" },
+    { id: "manual24kEGP", label: "ذهب عيار 24 (EGP/gram)", group: "أسعار الذهب" },
+    { id: "manual21kEGP", label: "ذهب عيار 21 (EGP/gram)", group: "أسعار الذهب" },
+    { id: "manual18kEGP", label: "ذهب عيار 18 (EGP/gram)", group: "أسعار الذهب" },
+    { id: "manual14kEGP", label: "ذهب عيار 14 (EGP/gram)", group: "أسعار الذهب" },
+    { id: "manual12kEGP", label: "ذهب عيار 12 (EGP/gram)", group: "أسعار الذهب" },
     { id: "making24k", label: "مصنعية عيار 24 (EGP/gram)", group: "المصنعية" },
     { id: "making21k", label: "مصنعية عيار 21 (EGP/gram)", group: "المصنعية" },
     { id: "making18k", label: "مصنعية عيار 18 (EGP/gram)", group: "المصنعية" },
@@ -91,15 +91,41 @@ function firebaseErrorMessage(error) {
 }
 
 function renderPriceFields() {
-    const container = byId("priceFields");
+    const tabsContainer = byId("priceTabs");
+    const panelsContainer = byId("pricePanels");
     const groups = [...new Set(priceFields.map((field) => field.group))];
-    container.replaceChildren();
+    tabsContainer.replaceChildren();
+    panelsContainer.replaceChildren();
 
-    for (const group of groups) {
+    groups.forEach((group, index) => {
+        const tabId = `price-category-tab-${index}`;
+        const panelId = `price-category-panel-${index}`;
+        const tab = document.createElement("button");
+        tab.type = "button";
+        tab.id = tabId;
+        tab.setAttribute("role", "tab");
+        tab.setAttribute("aria-controls", panelId);
+        tab.setAttribute("aria-selected", String(index === 0));
+        tab.tabIndex = index === 0 ? 0 : -1;
+        tab.className = `shrink-0 rounded-lg px-4 py-2 text-sm font-bold ${
+            index === 0 ? "bg-cyan-500 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+        }`;
+        tab.textContent = group;
+        tab.addEventListener("click", () => activatePriceTab(tabId));
+        tabsContainer.appendChild(tab);
+
+        const panel = document.createElement("section");
+        panel.id = panelId;
+        panel.setAttribute("role", "tabpanel");
+        panel.setAttribute("aria-labelledby", tabId);
+        panel.tabIndex = 0;
+        panel.className = "gap-4 sm:grid-cols-2 lg:grid-cols-3";
+        panel.hidden = index !== 0;
+        if (index === 0) panel.classList.add("grid");
         const heading = document.createElement("h3");
-        heading.className = "mt-4 border-b border-slate-800 pb-2 font-bold text-cyan-300 sm:col-span-2 lg:col-span-3";
+        heading.className = "border-b border-slate-800 pb-2 font-bold text-cyan-300 sm:col-span-2 lg:col-span-3";
         heading.textContent = group;
-        container.appendChild(heading);
+        panel.appendChild(heading);
 
         for (const field of priceFields.filter((item) => item.group === group)) {
             const wrapper = document.createElement("label");
@@ -114,9 +140,45 @@ function renderPriceFields() {
             input.inputMode = "decimal";
             input.placeholder = "اتركه فارغاً للإبقاء على القيمة الحالية";
             wrapper.appendChild(input);
-            container.appendChild(wrapper);
+            panel.appendChild(wrapper);
         }
+
+        panelsContainer.appendChild(panel);
+    });
+}
+
+function activatePriceTab(tabId, focus = false) {
+    const tabs = [...byId("priceTabs").querySelectorAll('[role="tab"]')];
+    for (const tab of tabs) {
+        const active = tab.id === tabId;
+        tab.setAttribute("aria-selected", String(active));
+        tab.tabIndex = active ? 0 : -1;
+        tab.className = `shrink-0 rounded-lg px-4 py-2 text-sm font-bold ${
+            active ? "bg-cyan-500 text-white" : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+        }`;
+        const panel = byId(tab.getAttribute("aria-controls"));
+        panel.hidden = !active;
+        panel.classList.toggle("grid", active);
     }
+
+    if (focus) byId(tabId).focus();
+}
+
+function handlePriceTabKeydown(event) {
+    const tabs = [...byId("priceTabs").querySelectorAll('[role="tab"]')];
+    const currentIndex = tabs.findIndex((tab) => tab === event.target);
+    if (currentIndex < 0) return;
+
+    const direction = document.documentElement.dir === "rtl" ? -1 : 1;
+    let nextIndex;
+    if (event.key === "Home") nextIndex = 0;
+    else if (event.key === "End") nextIndex = tabs.length - 1;
+    else if (event.key === "ArrowRight") nextIndex = (currentIndex + direction + tabs.length) % tabs.length;
+    else if (event.key === "ArrowLeft") nextIndex = (currentIndex - direction + tabs.length) % tabs.length;
+    else return;
+
+    event.preventDefault();
+    activatePriceTab(tabs[nextIndex].id, true);
 }
 
 function readNumber(id, fallback) {
@@ -503,6 +565,7 @@ byId("priceFields").addEventListener("input", (event) => {
         if (match) syncCaratEgp(match[1], event.target.id);
     }
 });
+byId("priceTabs").addEventListener("keydown", handlePriceTabKeydown);
 byId("articleSearch").addEventListener("input", (event) => renderArticles(event.target.value));
 byId("cancelArticleEdit").addEventListener("click", clearArticleForm);
 byId("articleTitle").addEventListener("input", updateArticlePreview);

@@ -77,7 +77,10 @@
           <h2 class="mb-2 text-xl font-bold">تحديث بيانات السوق</h2>
           <p class="mb-5 text-sm text-slate-400">التغييرات تُحفظ في Firebase Realtime Database وتظهر على الموقع.</p>
           <form id="pricesForm">
-            <div id="priceFields" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+            <div id="priceFields">
+              <div id="priceTabs" class="flex gap-2 overflow-x-auto pb-2" role="tablist" aria-label="فئات بيانات السوق"></div>
+              <div id="pricePanels" class="mt-4"></div>
+            </div>
             <button id="savePrices" class="mt-6 w-full rounded-xl bg-cyan-500 px-4 py-3 font-bold text-white hover:bg-cyan-600" type="submit">
               حفظ الأسعار على Firebase
             </button>
